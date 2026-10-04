@@ -6,6 +6,8 @@ import {
   pickHeight,
   MIN_VIDEO_BITRATE,
   estimateMinSize,
+  TARGET_BYTES,
+  HARD_LIMIT_BYTES,
 } from './bitrate'
 import { MAX_FILE_MB, MAX_FILE_BYTES } from './limits'
 
@@ -51,9 +53,19 @@ function App() {
     setProgress(0)
     try {
       const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
-      const blob = await compress(file, bitrate, pickHeight(bitrate), (ratio) =>
-        setProgress(Math.round(ratio * 100)),
-      )
+      const onProgress = (ratio: number) => setProgress(Math.round(ratio * 100))
+
+      let blob = await compress(file, bitrate, pickHeight(bitrate), onProgress)
+
+      if (blob.size > HARD_LIMIT_BYTES && bitrate > MIN_VIDEO_BITRATE) {
+        const corrected = Math.max(
+          Math.floor(bitrate * (TARGET_BYTES / blob.size) * 0.95),
+          MIN_VIDEO_BITRATE,
+        )
+        setProgress(0)
+        blob = await compress(file, corrected, pickHeight(corrected), onProgress)
+      }
+
       setResultUrl(URL.createObjectURL(blob))
       setResultSize(blob.size)
       setStatus('done')

@@ -1,5 +1,7 @@
-const TARGET_BYTES = 9_500_000
+export const TARGET_BYTES = 9_500_000
+export const HARD_LIMIT_BYTES = 10_000_000
 const AUDIO_BITRATE = 64_000
+
 
 export function calcVideoBitrate(durationSec: number): number {
   if (durationSec <= 0) {

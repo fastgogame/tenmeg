@@ -7,6 +7,7 @@ import {
   MIN_VIDEO_BITRATE,
   estimateMinSize,
 } from './bitrate'
+import { MAX_FILE_MB, MAX_FILE_BYTES } from './limits'
 
 type Status = 'idle' | 'compressing' | 'done' | 'error'
 
@@ -17,45 +18,56 @@ function App() {
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [resultSize, setResultSize] = useState<number | null>(null)
   const [progress, setProgress] = useState(0)
+  const [message, setMessage] = useState<string | null>(null)
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null
-    setFile(selected)
+    setFile(null)
     setDuration(null)
     setResultUrl(null)
     setResultSize(null)
     setStatus('idle')
+    setMessage(null)
 
     if (!selected) return
+
+    if (selected.size > MAX_FILE_BYTES) {
+      setMessage(`Файл слишком большой. Максимум ${MAX_FILE_MB} МБ.`)
+      return
+    }
+
+    setFile(selected)
     try {
       setDuration(await getVideoDuration(selected))
     } catch (error) {
       console.error(error)
+      setMessage('Не удалось прочитать видео. Попробуйте формат MP4.')
     }
   }
 
   async function handleCompress() {
-  if (!file || duration === null) return
-  setStatus('compressing')
-  setProgress(0)
-  try {
-    const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
-    const blob = await compress(file, bitrate, pickHeight(bitrate), (ratio) =>
-      setProgress(Math.round(ratio * 100)),
-    )
-    setResultUrl(URL.createObjectURL(blob))
-    setResultSize(blob.size)
-    setStatus('done')
-  } catch (error) {
-    console.error(error)
-    setStatus('error')
+    if (!file || duration === null) return
+    setStatus('compressing')
+    setProgress(0)
+    try {
+      const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
+      const blob = await compress(file, bitrate, pickHeight(bitrate), (ratio) =>
+        setProgress(Math.round(ratio * 100)),
+      )
+      setResultUrl(URL.createObjectURL(blob))
+      setResultSize(blob.size)
+      setStatus('done')
+    } catch (error) {
+      console.error(error)
+      setStatus('error')
+    }
   }
-}
 
   return (
     <main>
       <h1>Tenmeg</h1>
       <input type="file" accept="video/*" onChange={handleChange} />
+      {message && <p>{message}</p>}
       {file && (
         <p>
           {file.name}: {(file.size / 1024 / 1024).toFixed(1)} МБ
@@ -68,7 +80,7 @@ function App() {
         </p>
       )}
       {duration !== null && calcVideoBitrate(duration) < MIN_VIDEO_BITRATE && (
-         <p>
+        <p>
           До 10 МБ без сильной потери качества не сжать. Ожидаемый размер: около{' '}
           {(estimateMinSize(duration) / 1024 / 1024).toFixed(1)} МБ.
         </p>
@@ -81,9 +93,9 @@ function App() {
       </button>
       <p>Статус: {status}</p>
       {status === 'compressing' && (
-      <p>
-        <progress value={progress} max={100} /> {progress}%
-      </p>
+        <p>
+          <progress value={progress} max={100} /> {progress}%
+        </p>
       )}
       {resultUrl && resultSize !== null && (
         <p>

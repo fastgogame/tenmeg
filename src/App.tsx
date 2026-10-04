@@ -1,7 +1,12 @@
 import { useState, type ChangeEvent } from 'react'
 import { compress } from './ffmpeg'
 import { getVideoDuration } from './duration'
-import { calcVideoBitrate, pickHeight } from './bitrate'
+import {
+  calcVideoBitrate,
+  pickHeight,
+  MIN_VIDEO_BITRATE,
+  estimateMinSize,
+} from './bitrate'
 
 type Status = 'idle' | 'compressing' | 'done' | 'error'
 
@@ -32,7 +37,7 @@ function App() {
   if (!file || duration === null) return
   setStatus('compressing')
   try {
-    const bitrate = calcVideoBitrate(duration)
+    const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
     const blob = await compress(file, bitrate, pickHeight(bitrate))
     setResultUrl(URL.createObjectURL(blob))
     setResultSize(blob.size)
@@ -56,6 +61,12 @@ function App() {
         <p>
           Длительность: {duration.toFixed(1)} с. Битрейт видео под 10 МБ:{' '}
           {Math.round(calcVideoBitrate(duration) / 1000)} кбит/с
+        </p>
+      )}
+      {duration !== null && calcVideoBitrate(duration) < MIN_VIDEO_BITRATE && (
+         <p>
+          До 10 МБ без сильной потери качества не сжать. Ожидаемый размер: около{' '}
+          {(estimateMinSize(duration) / 1024 / 1024).toFixed(1)} МБ.
         </p>
       )}
       <button

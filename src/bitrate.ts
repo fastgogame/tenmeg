@@ -15,3 +15,9 @@ export function pickHeight(videoBitrate: number): number {
   if (videoBitrate > 600_000) return 540
   return 360
 }
+
+export const MIN_VIDEO_BITRATE = 300_000
+
+export function estimateMinSize(durationSec: number): number {
+  return ((MIN_VIDEO_BITRATE + AUDIO_BITRATE) * durationSec) / 8
+}

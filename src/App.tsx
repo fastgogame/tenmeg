@@ -16,6 +16,7 @@ function App() {
   const [status, setStatus] = useState<Status>('idle')
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [resultSize, setResultSize] = useState<number | null>(null)
+  const [progress, setProgress] = useState(0)
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null
@@ -36,9 +37,12 @@ function App() {
   async function handleCompress() {
   if (!file || duration === null) return
   setStatus('compressing')
+  setProgress(0)
   try {
     const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
-    const blob = await compress(file, bitrate, pickHeight(bitrate))
+    const blob = await compress(file, bitrate, pickHeight(bitrate), (ratio) =>
+      setProgress(Math.round(ratio * 100)),
+    )
     setResultUrl(URL.createObjectURL(blob))
     setResultSize(blob.size)
     setStatus('done')
@@ -76,6 +80,11 @@ function App() {
         Сжать
       </button>
       <p>Статус: {status}</p>
+      {status === 'compressing' && (
+      <p>
+        <progress value={progress} max={100} /> {progress}%
+      </p>
+      )}
       {resultUrl && resultSize !== null && (
         <p>
           Результат: {(resultSize / 1024 / 1024).toFixed(2)} МБ.{' '}

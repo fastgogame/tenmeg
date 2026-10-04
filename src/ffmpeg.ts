@@ -18,7 +18,11 @@ export async function loadFFmpeg(): Promise<FFmpeg> {
   return instance
 }
 
-export async function compressTest(file: File): Promise<Blob> {
+export async function compress(
+  file: File,
+  videoBitrate: number,
+  height: number,
+): Promise<Blob> {
   const ff = await loadFFmpeg()
 
   await ff.writeFile('input', await fetchFile(file))
@@ -26,9 +30,9 @@ export async function compressTest(file: File): Promise<Blob> {
   const code = await ff.exec([
     '-i', 'input',
     '-c:v', 'libx264',
-    '-preset', 'ultrafast',
-    '-b:v', '500k',
-    '-vf', 'scale=-2:360',
+    '-preset', 'veryfast',
+    '-b:v', String(videoBitrate),
+    '-vf', `scale=-2:'min(ih,${height})'`,
     '-c:a', 'aac',
     '-b:a', '64k',
     '-movflags', '+faststart',

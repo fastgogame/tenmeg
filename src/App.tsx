@@ -76,47 +76,64 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Tenmeg</h1>
-      <input type="file" accept="video/*" onChange={handleChange} />
-      {message && <p>{message}</p>}
-      {file && (
-        <p>
-          {file.name}: {(file.size / 1024 / 1024).toFixed(1)} МБ
-        </p>
-      )}
-      {duration !== null && (
-        <p>
-          Длительность: {duration.toFixed(1)} с. Битрейт видео под 10 МБ:{' '}
-          {Math.round(calcVideoBitrate(duration) / 1000)} кбит/с
-        </p>
-      )}
-      {duration !== null && calcVideoBitrate(duration) < MIN_VIDEO_BITRATE && (
-        <p>
-          До 10 МБ без сильной потери качества не сжать. Ожидаемый размер: около{' '}
-          {(estimateMinSize(duration) / 1024 / 1024).toFixed(1)} МБ.
-        </p>
-      )}
-      <button
-        onClick={handleCompress}
-        disabled={!file || status === 'compressing'}
-      >
-        Сжать
-      </button>
-      <p>Статус: {status}</p>
-      {status === 'compressing' && (
-        <p>
-          <progress value={progress} max={100} /> {progress}%
-        </p>
-      )}
-      {resultUrl && resultSize !== null && (
-        <p>
-          Результат: {(resultSize / 1024 / 1024).toFixed(2)} МБ.{' '}
-          <a href={resultUrl} download="tenmeg-output.mp4">
-            Скачать
-          </a>
-        </p>
-      )}
+    <main className="flex min-h-screen items-center justify-center bg-ink p-4 text-[#ededed]">
+      <div className="w-full max-w-lg space-y-4 rounded-xl border border-line bg-[#0a0a0a] p-6">
+        <h1 className="text-3xl font-semibold tracking-tight text-white text-center">Tenmeg</h1>
+        <input
+          type="file"
+          accept="video/*"
+          onChange={handleChange}
+          className="block w-full text-sm text-muted file:mr-4 file:cursor-pointer file:rounded-md file:border file:border-line file:bg-transparent file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/10"
+        />
+        {message && (
+          <p className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">
+            {message}
+          </p>
+        )}
+        {file && (
+          <p className="text-sm text-muted">
+            {file.name}: {(file.size / 1024 / 1024).toFixed(1)} МБ
+          </p>
+        )}
+        {duration !== null && (
+          <p className="rounded-md border border-line p-3 text-sm">
+            Длительность: {duration.toFixed(1)} с. Битрейт видео под 10 МБ:{' '}
+            {Math.round(calcVideoBitrate(duration) / 1000)} кбит/с
+          </p>
+        )}
+        {duration !== null && calcVideoBitrate(duration) < MIN_VIDEO_BITRATE && (
+          <p className="rounded-md border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-300">
+            До 10 МБ без сильной потери качества не сжать. Ожидаемый размер: около{' '}
+            {(estimateMinSize(duration) / 1024 / 1024).toFixed(1)} МБ.
+          </p>
+        )}
+        <button
+          onClick={handleCompress}
+          disabled={!file || status === 'compressing'}
+          className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+        >
+          Сжать
+        </button>
+        <p className="font-mono text-xs text-muted">Статус: {status}</p>
+        {status === 'compressing' && (
+          <p className="flex items-center gap-2 text-sm">
+            <progress className="h-1.5 w-full accent-white" value={progress} max={100} />{' '}
+            {progress}%
+          </p>
+        )}
+        {resultUrl && resultSize !== null && (
+          <p className="rounded-md border border-line bg-white/5 p-4 text-white">
+            Результат: {(resultSize / 1024 / 1024).toFixed(2)} МБ.{' '}
+            <a
+              href={resultUrl}
+              download="tenmeg-output.mp4"
+              className="font-medium underline underline-offset-4 hover:text-muted"
+            >
+              Скачать
+            </a>
+          </p>
+        )}
+      </div>
     </main>
   )
 }

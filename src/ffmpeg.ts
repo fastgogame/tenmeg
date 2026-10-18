@@ -4,18 +4,41 @@ import { toBlobURL, fetchFile } from '@ffmpeg/util'
 const CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm'
 
 let ffmpeg: FFmpeg | null = null
+let loading: Promise<FFmpeg> | null = null
+let coreUrls: Promise<{ coreURL: string; wasmURL: string }> | null = null
 
-export async function loadFFmpeg(): Promise<FFmpeg> {
-  if (ffmpeg) return ffmpeg
+function getCoreUrls() {
+  coreUrls ??= Promise.all([
+    toBlobURL(`${CORE_URL}/ffmpeg-core.js`, 'text/javascript'),
+    toBlobURL(`${CORE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
+  ]).then(([coreURL, wasmURL]) => ({ coreURL, wasmURL }))
+  coreUrls.catch(() => {
+    coreUrls = null
+  })
+  return coreUrls
+}
+
+export function loadFFmpeg(): Promise<FFmpeg> {
+  if (loading) return loading
 
   const instance = new FFmpeg()
-  await instance.load({
-    coreURL: await toBlobURL(`${CORE_URL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${CORE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-  })
-
   ffmpeg = instance
-  return instance
+  loading = (async () => {
+    const urls = await getCoreUrls()
+    if (ffmpeg !== instance) throw new Error('Загрузка FFmpeg отменена')
+    await instance.load(urls)
+    return instance
+  })()
+  loading.catch(() => {
+    if (ffmpeg === instance) cancelCompression()
+  })
+  return loading
+}
+
+export function cancelCompression() {
+  ffmpeg?.terminate()
+  ffmpeg = null
+  loading = null
 }
 
 export async function compress(

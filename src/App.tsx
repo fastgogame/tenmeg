@@ -1,5 +1,5 @@
-import { useState, type ChangeEvent } from 'react'
-import { compress } from './ffmpeg'
+import { useState, type ChangeEvent, useRef } from 'react'
+import { compress, cancelCompression } from './ffmpeg'
 import { getVideoDuration } from './duration'
 import {
   calcVideoBitrate,
@@ -21,9 +21,17 @@ function App() {
   const [resultSize, setResultSize] = useState<number | null>(null)
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
+  const latestFile = useRef<File | null>(null)
+  const compressJob = useRef(0)
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null
+    if (!selected && status === 'compressing') return
+    latestFile.current = selected
+    if (status === 'compressing') {
+      compressJob.current++
+      cancelCompression()
+    }
     setFile(null)
     setDuration(null)
     setResultUrl(null)
@@ -40,8 +48,11 @@ function App() {
 
     setFile(selected)
     try {
-      setDuration(await getVideoDuration(selected))
+      const seconds = await getVideoDuration(selected)
+      if (latestFile.current !== selected) return
+      setDuration(seconds)
     } catch (error) {
+      if (latestFile.current !== selected) return
       console.error(error)
       setMessage('Не удалось прочитать видео. Попробуйте формат MP4.')
     }
@@ -49,13 +60,18 @@ function App() {
 
   async function handleCompress() {
     if (!file || duration === null) return
+    const job = ++compressJob.current
+    const isCancelled = () => compressJob.current !== job
     setStatus('compressing')
     setProgress(0)
     try {
       const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
-      const onProgress = (ratio: number) => setProgress(Math.round(ratio * 100))
+      const onProgress = (ratio: number) => {
+        if (!isCancelled()) setProgress(Math.round(ratio * 100))
+      }
 
       let blob = await compress(file, bitrate, pickHeight(bitrate), onProgress)
+      if (isCancelled()) return
 
       if (blob.size > HARD_LIMIT_BYTES && bitrate > MIN_VIDEO_BITRATE) {
         const corrected = Math.max(
@@ -64,12 +80,14 @@ function App() {
         )
         setProgress(0)
         blob = await compress(file, corrected, pickHeight(corrected), onProgress)
+        if (isCancelled()) return
       }
 
       setResultUrl(URL.createObjectURL(blob))
       setResultSize(blob.size)
       setStatus('done')
     } catch (error) {
+      if (isCancelled()) return
       console.error(error)
       setStatus('error')
     }
@@ -85,6 +103,11 @@ function App() {
           onChange={handleChange}
           className="block w-full text-sm text-muted file:mr-4 file:cursor-pointer file:rounded-md file:border file:border-line file:bg-transparent file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/10"
         />
+        {status === 'compressing' && (
+          <p className="rounded-md border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-300">
+            Если выбрать другой файл, текущее сжатие будет остановлено.
+          </p>
+        )}
         {message && (
           <p className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">
             {message}
@@ -109,7 +132,7 @@ function App() {
         )}
         <button
           onClick={handleCompress}
-          disabled={!file || status === 'compressing'}
+          disabled={!file || duration === null || status === 'compressing'}
           className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
         >
           Сжать

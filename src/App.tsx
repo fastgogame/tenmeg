@@ -13,6 +13,13 @@ import { MAX_FILE_MB, MAX_FILE_BYTES } from './limits'
 
 type Status = 'idle' | 'compressing' | 'done' | 'error'
 
+const STATUS_LABELS: Record<Status, string | null> = {
+  idle: null,
+  compressing: 'Сжатие…',
+  done: 'Готово',
+  error: 'Ошибка',
+}
+
 function App() {
   const [file, setFile] = useState<File | null>(null)
   const [duration, setDuration] = useState<number | null>(null)
@@ -50,6 +57,10 @@ function App() {
     try {
       const seconds = await getVideoDuration(selected)
       if (latestFile.current !== selected) return
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        setMessage('Не удалось определить длительность видео. Попробуйте формат MP4.')
+        return
+      }
       setDuration(seconds)
     } catch (error) {
       if (latestFile.current !== selected) return
@@ -64,6 +75,9 @@ function App() {
     const isCancelled = () => compressJob.current !== job
     setStatus('compressing')
     setProgress(0)
+    setMessage(null)
+    setResultUrl(null)
+    setResultSize(null)
     try {
       const bitrate = Math.max(calcVideoBitrate(duration), MIN_VIDEO_BITRATE)
       const onProgress = (ratio: number) => {
@@ -90,6 +104,7 @@ function App() {
       if (isCancelled()) return
       console.error(error)
       setStatus('error')
+      setMessage('Не удалось сжать видео. Выберите другой файл.')
     }
   }
 
@@ -137,7 +152,9 @@ function App() {
         >
           Сжать
         </button>
-        <p className="font-mono text-xs text-muted">Статус: {status}</p>
+        {STATUS_LABELS[status] && (
+          <p className="font-mono text-xs text-muted">Статус: {STATUS_LABELS[status]}</p>
+        )}
         {status === 'compressing' && (
           <p className="flex items-center gap-2 text-sm">
             <progress className="h-1.5 w-full accent-white" value={progress} max={100} />{' '}
@@ -154,6 +171,11 @@ function App() {
             >
               Скачать
             </a>
+          </p>
+        )}
+        {resultSize !== null && resultSize > HARD_LIMIT_BYTES && (
+          <p className="rounded-md border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-300">
+            Уложиться в 10 МБ не удалось: видео слишком длинное для этого лимита.
           </p>
         )}
       </div>
